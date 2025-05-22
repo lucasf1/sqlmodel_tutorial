@@ -42,10 +42,8 @@ def create_heroes():
 
 def select_heroes():
     with Session(engine) as session:
-        statement = select(Hero).where(Hero.name == "Deadpond")
-        results = session.exec(statement)
-        for hero in results:
-            print(hero)
+        hero = session.get(Hero, 1)
+        print('Hero: ', hero)
 
 
 def main():
