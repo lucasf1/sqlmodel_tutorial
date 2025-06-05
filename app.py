@@ -23,7 +23,7 @@ class Hero(SQLModel, table=True):
     secret_name: str
     age: int | None = Field(default=None, index=True)
 
-    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="SET NULL")
+    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="RESTRICT")
     team: Team | None = Relationship(back_populates="heroes")
 
 
@@ -101,6 +101,17 @@ def create_heroes():
         print("Preventers new hero:", hero_cap)
 
 
+def remove_team_heroes():
+    with Session(engine) as session:
+        statement = select(Team).where(Team.name == "Wakaland")
+        team = session.exec(statement).one()
+        team.heroes.clear()
+        session.add(team)
+        session.commit()
+        session.refresh(team)
+        print("Team with removed heroes:", team)
+
+
 def delete_team():
     with Session(engine) as session:
         statement = select(Team).where(Team.name == "Wakaland")
@@ -126,6 +137,7 @@ def select_deleted_heroes():
 def main():
     create_db_and_tables()
     create_heroes()
+    remove_team_heroes()
     delete_team()
     select_deleted_heroes()
 
