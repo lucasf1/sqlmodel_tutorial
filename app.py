@@ -6,7 +6,7 @@ class Team(SQLModel, table=True):
     name: str = Field(index=True)
     headquarters: str
 
-    heroes: list["Hero"] = Relationship(back_populates="team")
+    heroes: list["Hero"] = Relationship(back_populates="team", cascade_delete=True)
 
 
 class Hero(SQLModel, table=True):
@@ -15,7 +15,7 @@ class Hero(SQLModel, table=True):
     secret_name: str
     age: int | None = Field(default=None, index=True)
 
-    team_id: int | None = Field(default=None, foreign_key="team.id")
+    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="CASCADE")
     team: Team | None = Relationship(back_populates="heroes")
 
 
@@ -91,61 +91,33 @@ def create_heroes():
         print("Preventers new hero:", hero_cap)
 
 
-def select_heroes():
+def delete_team():
     with Session(engine) as session:
-        statement = select(Hero).where(Hero.name == "Spider-Boy")
-        result = session.exec(statement)
-        hero_spider_boy = result.one()
-
-        statement = select(Team).where(Team.id == hero_spider_boy.team_id)
-        result = session.exec(statement)
-        team = result.first()
-        print("Spider-Boy's team:", team)
-
-        print("Spider-Boy's team again:", hero_spider_boy.team)
-
-        statement = select(Team).where(Team.name == "Preventers")
-        result = session.exec(statement)
-        team_preventers = result.one()
-
-        print("Preventers heroes:", team_preventers.heroes)
-
-
-def update_heroes():
-    with Session(engine) as session:
-        hero_spider_boy = session.exec(
-            select(Hero).where(Hero.name == "Spider-Boy")
-        ).one()
-
-        preventers_team = session.exec(
-            select(Team).where(Team.name == "Preventers")
-        ).one()
-
-        print("Hero Spider-Boy:", hero_spider_boy)
-        print("Preventers Team:", preventers_team)
-        print("Preventers Team Heroes:", preventers_team.heroes)
-
-        hero_spider_boy.team = None
-
-        print("Spider-Boy without team:", hero_spider_boy)
-
-        print("Preventers Team Heroes again:", preventers_team.heroes)
-
-        session.add(hero_spider_boy)
+        statement = select(Team).where(Team.name == "Wakaland")
+        team = session.exec(statement).one()
+        session.delete(team)
         session.commit()
-        print("After committing")
+        print("Deleted team:", team)
 
-        session.refresh(hero_spider_boy)
-        print("Spider-Boy after commit:", hero_spider_boy)
 
-        print("Preventers Team Heroes after commit:", preventers_team.heroes)    
+def select_deleted_heroes():
+    with Session(engine) as session:
+        statement = select(Hero).where(Hero.name == "Black Lion")
+        result = session.exec(statement)
+        hero = result.first()
+        print("Black Lion not found:", hero)
+
+        statement = select(Hero).where(Hero.name == "Princess Sure-E")
+        result = session.exec(statement)
+        hero = result.first()
+        print("Princess Sure-E not found:", hero)
 
 
 def main():
     create_db_and_tables()
     create_heroes()
-    select_heroes()
-    update_heroes()
+    delete_team()
+    select_deleted_heroes()
 
 
 if __name__ == "__main__":
