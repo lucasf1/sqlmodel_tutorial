@@ -1,4 +1,12 @@
-from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
+from sqlmodel import (
+    Field,
+    Relationship,
+    Session,
+    SQLModel,
+    create_engine,
+    select,
+    text,
+)
 
 
 class Team(SQLModel, table=True):
@@ -6,7 +14,7 @@ class Team(SQLModel, table=True):
     name: str = Field(index=True)
     headquarters: str
 
-    heroes: list["Hero"] = Relationship(back_populates="team")
+    heroes: list["Hero"] = Relationship(back_populates="team", passive_deletes="all")
 
 
 class Hero(SQLModel, table=True):
@@ -27,6 +35,8 @@ engine = create_engine(sqlite_url, echo=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+    with engine.connect() as connection:
+        connection.execute(text("PRAGMA foreign_keys=ON"))  # for SQLite only
 
 
 def create_heroes():
