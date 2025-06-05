@@ -6,7 +6,7 @@ class Team(SQLModel, table=True):
     name: str = Field(index=True)
     headquarters: str
 
-    heroes: list["Hero"] = Relationship(back_populates="team", cascade_delete=True)
+    heroes: list["Hero"] = Relationship(back_populates="team")
 
 
 class Hero(SQLModel, table=True):
@@ -15,7 +15,7 @@ class Hero(SQLModel, table=True):
     secret_name: str
     age: int | None = Field(default=None, index=True)
 
-    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="CASCADE")
+    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="SET NULL")
     team: Team | None = Relationship(back_populates="heroes")
 
 
@@ -105,12 +105,12 @@ def select_deleted_heroes():
         statement = select(Hero).where(Hero.name == "Black Lion")
         result = session.exec(statement)
         hero = result.first()
-        print("Black Lion not found:", hero)
+        print("Black Lion has no team:", hero)
 
         statement = select(Hero).where(Hero.name == "Princess Sure-E")
         result = session.exec(statement)
         hero = result.first()
-        print("Princess Sure-E not found:", hero)
+        print("Princess Sure-E has no team:", hero)
 
 
 def main():
