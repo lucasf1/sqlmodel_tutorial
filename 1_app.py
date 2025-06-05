@@ -91,7 +91,7 @@ def delete_heroes():
         results = session.exec(statement)
         hero = results.first()
         if hero is None:
-            print("There's no hero named Spider-Youngster")        
+            print("There's no hero named Spider-Youngster")
 
 
 def main():
