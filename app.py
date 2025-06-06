@@ -1,12 +1,13 @@
-from sqlmodel import (
-    Field,
-    Relationship,
-    Session,
-    SQLModel,
-    create_engine,
-    select,
-    text,
-)
+from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
+
+
+class HeroTeamLink(SQLModel, table=True):
+    team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
+    hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
+    is_training: bool = False
+
+    team: "Team" = Relationship(back_populates="hero_links")
+    hero: "Hero" = Relationship(back_populates="team_links")
 
 
 class Team(SQLModel, table=True):
@@ -14,7 +15,7 @@ class Team(SQLModel, table=True):
     name: str = Field(index=True)
     headquarters: str
 
-    heroes: list["Hero"] = Relationship(back_populates="team", passive_deletes="all")
+    hero_links: list[HeroTeamLink] = Relationship(back_populates="team")
 
 
 class Hero(SQLModel, table=True):
@@ -23,8 +24,7 @@ class Hero(SQLModel, table=True):
     secret_name: str
     age: int | None = Field(default=None, index=True)
 
-    team_id: int | None = Field(default=None, foreign_key="team.id", ondelete="RESTRICT")
-    team: Team | None = Relationship(back_populates="heroes")
+    team_links: list[HeroTeamLink] = Relationship(back_populates="hero")
 
 
 sqlite_file_name = "database.db"
@@ -35,8 +35,6 @@ engine = create_engine(sqlite_url, echo=True)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
-    with engine.connect() as connection:
-        connection.execute(text("PRAGMA foreign_keys=ON"))  # for SQLite only
 
 
 def create_heroes():
@@ -45,101 +43,74 @@ def create_heroes():
         team_z_force = Team(name="Z-Force", headquarters="Sister Margaret's Bar")
 
         hero_deadpond = Hero(
-            name="Deadpond", secret_name="Dive Wilson", team=team_z_force
+            name="Deadpond",
+            secret_name="Dive Wilson",
         )
         hero_rusty_man = Hero(
-            name="Rusty-Man", secret_name="Tommy Sharp", age=48, team=team_preventers
+            name="Rusty-Man",
+            secret_name="Tommy Sharp",
+            age=48,
         )
-        hero_spider_boy = Hero(name="Spider-Boy", secret_name="Pedro Parqueador")
-        session.add(hero_deadpond)
-        session.add(hero_rusty_man)
+        hero_spider_boy = Hero(
+            name="Spider-Boy",
+            secret_name="Pedro Parqueador",
+        )
+        deadpond_team_z_link = HeroTeamLink(team=team_z_force, hero=hero_deadpond)
+        deadpond_preventers_link = HeroTeamLink(
+            team=team_preventers, hero=hero_deadpond, is_training=True
+        )
+        spider_boy_preventers_link = HeroTeamLink(
+            team=team_preventers, hero=hero_spider_boy, is_training=True
+        )
+        rusty_man_preventers_link = HeroTeamLink(
+            team=team_preventers, hero=hero_rusty_man
+        )
+
+        session.add(deadpond_team_z_link)
+        session.add(deadpond_preventers_link)
+        session.add(spider_boy_preventers_link)
+        session.add(rusty_man_preventers_link)
+        session.commit()
+
+        for link in team_z_force.hero_links:
+            print("Z-Force hero:", link.hero, "is training:", link.is_training)
+
+        for link in team_preventers.hero_links:
+            print("Preventers hero:", link.hero, "is training:", link.is_training)
+
+
+def update_heroes():
+    with Session(engine) as session:
+        hero_spider_boy = session.exec(
+            select(Hero).where(Hero.name == "Spider-Boy")
+        ).one()
+        team_z_force = session.exec(select(Team).where(Team.name == "Z-Force")).one()
+
+        spider_boy_z_force_link = HeroTeamLink(
+            team=team_z_force, hero=hero_spider_boy, is_training=True
+        )
+        team_z_force.hero_links.append(spider_boy_z_force_link)
+        session.add(team_z_force)
+        session.commit()
+
+        print("Updated Spider-Boy's Teams:", hero_spider_boy.team_links)
+        print("Z-Force heroes:", team_z_force.hero_links)
+
+        for link in hero_spider_boy.team_links:
+            if link.team.name == "Preventers":
+                link.is_training = False
+
         session.add(hero_spider_boy)
         session.commit()
 
-        session.refresh(hero_deadpond)
-        session.refresh(hero_rusty_man)
-        session.refresh(hero_spider_boy)
-
-        print("Created hero:", hero_deadpond)
-        print("Created hero:", hero_rusty_man)
-        print("Created hero:", hero_spider_boy)
-
-        hero_spider_boy.team = team_preventers
-        session.add(hero_spider_boy)
-        session.commit()
-        session.refresh(hero_spider_boy)
-        print("Updated hero:", hero_spider_boy)
-
-        hero_black_lion = Hero(name="Black Lion", secret_name="Trevor Challa", age=35)
-        hero_sure_e = Hero(name="Princess Sure-E", secret_name="Sure-E")
-        team_wakaland = Team(
-            name="Wakaland",
-            headquarters="Wakaland Capital City",
-            heroes=[hero_black_lion, hero_sure_e],
-        )
-        session.add(team_wakaland)
-        session.commit()
-        session.refresh(team_wakaland)
-        print("Team Wakaland:", team_wakaland)
-
-        hero_tarantula = Hero(name="Tarantula", secret_name="Natalia Roman-on", age=32)
-        hero_dr_weird = Hero(name="Dr. Weird", secret_name="Steve Weird", age=36)
-        hero_cap = Hero(
-            name="Captain North America", secret_name="Esteban Rogelios", age=93
-        )
-
-        team_preventers.heroes.append(hero_tarantula)
-        team_preventers.heroes.append(hero_dr_weird)
-        team_preventers.heroes.append(hero_cap)
-        session.add(team_preventers)
-        session.commit()
-        session.refresh(hero_tarantula)
-        session.refresh(hero_dr_weird)
-        session.refresh(hero_cap)
-        print("Preventers new hero:", hero_tarantula)
-        print("Preventers new hero:", hero_dr_weird)
-        print("Preventers new hero:", hero_cap)
-
-
-def remove_team_heroes():
-    with Session(engine) as session:
-        statement = select(Team).where(Team.name == "Wakaland")
-        team = session.exec(statement).one()
-        team.heroes.clear()
-        session.add(team)
-        session.commit()
-        session.refresh(team)
-        print("Team with removed heroes:", team)
-
-
-def delete_team():
-    with Session(engine) as session:
-        statement = select(Team).where(Team.name == "Wakaland")
-        team = session.exec(statement).one()
-        session.delete(team)
-        session.commit()
-        print("Deleted team:", team)
-
-
-def select_deleted_heroes():
-    with Session(engine) as session:
-        statement = select(Hero).where(Hero.name == "Black Lion")
-        result = session.exec(statement)
-        hero = result.first()
-        print("Black Lion has no team:", hero)
-
-        statement = select(Hero).where(Hero.name == "Princess Sure-E")
-        result = session.exec(statement)
-        hero = result.first()
-        print("Princess Sure-E has no team:", hero)
+        for link in hero_spider_boy.team_links:
+            print("Spider-Boy team:", link.team, "is training:", link.is_training)
 
 
 def main():
     create_db_and_tables()
     create_heroes()
-    remove_team_heroes()
-    delete_team()
-    select_deleted_heroes()
+    update_heroes()
 
 
 if __name__ == "__main__":
